@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"context"
@@ -10,9 +10,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func manageVPC(thisSession *session.Session) {
-	vpcSvc := ec2.New(thisSession, aws.NewConfig().WithRegion("eu-west-1"))
+// ManageVPC creates, deletes and operates on AWS VPC
+func ManageVPC(thisSession *session.Session, vpcID *string) {
+	ec2Session := ec2.New(thisSession, aws.NewConfig().WithRegion("eu-west-1"))
+	ctx := context.Background()
 
+	//ec2Session.CreateTagsWithContext(ctx)
+	if vpcID == nil {
+		vpcID = createVpc(ctx, ec2Session)
+		createSubnets(ctx, ec2Session, vpcID)
+	} else {
+		GetSubnets(ctx, ec2Session, vpcID)
+	}
+
+}
+
+func createVpc(ctx context.Context, ec2Session *ec2.EC2) *string {
 	//var vpcInput *ec2.CreateVpcInput
 	//vpcInput = new(ec2.CreateVpcInput)
 	vpcInput := &ec2.CreateVpcInput{}
@@ -25,8 +38,7 @@ func manageVPC(thisSession *session.Session) {
 		log.Error(vpcerr)
 	}
 
-	ctx := context.Background()
-	vpcOutPut, err := vpcSvc.CreateVpcWithContext(ctx, vpcInput)
+	vpcOutPut, err := ec2Session.CreateVpcWithContext(ctx, vpcInput)
 
 	if err != nil {
 		log.Fatal(err)
@@ -44,13 +56,28 @@ func manageVPC(thisSession *session.Session) {
 	})
 	tagInput.SetDryRun(false)
 
-	_, tagerr := vpcSvc.CreateTagsWithContext(ctx, tagInput)
+	_, tagerr := ec2Session.CreateTagsWithContext(ctx, tagInput)
 	if tagerr != nil {
 		log.Info(tagerr.Error())
 	}
-	//vpcSvc.CreateTagsWithContext(ctx)
-	createSubnets(ctx, vpcSvc, vpcOutPut.Vpc.VpcId)
 
+	return vpcOutPut.Vpc.VpcId
+}
+
+// GetSubnets returns a list of subnets for provided VPC
+func GetSubnets(ctx context.Context, ec2Session *ec2.EC2, VpcID *string) {
+	subnetInput := &ec2.DescribeSubnetsInput{}
+	subnetFilter := []*ec2.Filter{
+		{
+			Name: aws.String("vpc-id"),
+			Values: []*string{
+				aws.String(*VpcID),
+			},
+		},
+	}
+	subnetInput.SetFilters(subnetFilter)
+	subnetsOp, _ := ec2Session.DescribeSubnets(subnetInput)
+	fmt.Println(subnetsOp)
 }
 
 func createSubnets(ctx context.Context, ec2Client *ec2.EC2, VpcID *string) {
