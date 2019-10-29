@@ -11,7 +11,6 @@ import (
 
 var (
 	thisSession *session.Session
-	region      string
 	rootCmd     = &cobra.Command{
 		Use:   "mskmanger",
 		Short: "mskmanager is a controller for operating Amazon's managed kafka service",
@@ -33,8 +32,6 @@ func Execute() {
 
 func init() {
 
-	// @// TODO:  change default region to us-east-1 as usually that is the cheapest
-	rootCmd.Flags().StringVarP(&region, "region", "r", "eu-west-1", "Region where MSK cluster needs to be operated on")
 	thisSession = session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(region),
 	}))
